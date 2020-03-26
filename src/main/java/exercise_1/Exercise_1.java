@@ -21,9 +21,13 @@ import java.util.List;
 
 public class Exercise_1 {
 
+    static int num_superstep =0;
+
     private static class VProg extends AbstractFunction3<Long,Integer,Integer,Integer> implements Serializable {
         @Override
         public Integer apply(Long vertexID, Integer vertexValue, Integer message) {
+            System.out.println("Superstep "+num_superstep+", ID" + vertexID+": " + vertexValue);
+            num_superstep++;
             if (message == Integer.MAX_VALUE) {             // superstep 0
                 return vertexValue;
             } else {                                        // superstep > 0
@@ -38,6 +42,8 @@ public class Exercise_1 {
             Tuple2<Object,Integer> sourceVertex = triplet.toTuple()._1();
             Tuple2<Object,Integer> dstVertex = triplet.toTuple()._2();
 
+            System.out.println("1. source Vertex "+sourceVertex + " 2.dst Vertex "+dstVertex);
+
             if (sourceVertex._2 <= dstVertex._2) {   // source vertex value is smaller than dst vertex?
                 // do nothing
                 return JavaConverters.asScalaIteratorConverter(new ArrayList<Tuple2<Object,Integer>>().iterator()).asScala();
@@ -51,6 +57,7 @@ public class Exercise_1 {
     private static class merge extends AbstractFunction2<Integer,Integer,Integer> implements Serializable {
         @Override
         public Integer apply(Integer o, Integer o2) {
+            System.out.println("Executed");
             return Math.max(o,o2);
         }
     }
