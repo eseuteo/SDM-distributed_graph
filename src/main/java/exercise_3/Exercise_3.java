@@ -2,13 +2,11 @@ package exercise_3;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import exercise_2.Exercise_2;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.graphx.*;
 import org.apache.spark.storage.StorageLevel;
 import scala.Tuple2;
-import scala.Tuple3;
 import scala.collection.Iterator;
 import scala.collection.JavaConverters;
 import scala.reflect.ClassTag$;
@@ -17,29 +15,39 @@ import scala.runtime.AbstractFunction2;
 import scala.runtime.AbstractFunction3;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Exercise_3 {
-    private static class VProg extends AbstractFunction3<Long,Integer,Integer,Integer> implements Serializable {
+    private static class VProg extends AbstractFunction3<Long,Tuple2<Integer, ArrayList<Long>>,Tuple2<Integer, ArrayList<Long>>,Tuple2<Integer, ArrayList<Long>>> implements Serializable {
         @Override
-        public Integer apply(Long vertexID, Integer vertexValue, Integer message) {
-            return null;
+        public Tuple2<Integer, ArrayList<Long>> apply(Long vertexID, Tuple2<Integer, ArrayList<Long>> vertexValue, Tuple2<Integer, ArrayList<Long>> message) {
+            ArrayList<Long> pathSelected = vertexValue._1 < message._1 ? vertexValue._2 : message._2;
+            if (message._2 == null) {
+                pathSelected = vertexValue._2;
+            }
+            Tuple2<Integer, ArrayList<Long>> answer = new Tuple2<Integer, ArrayList<Long>>(Math.min(vertexValue._1, message._1), pathSelected);
+            return answer;
         }
     }
 
-    private static class sendMsg extends AbstractFunction1<EdgeTriplet<Integer,Integer>, Iterator<Tuple2<Object,Integer>>> implements Serializable {
+    private static class sendMsg extends AbstractFunction1<EdgeTriplet<Tuple2<Integer, ArrayList<Long>>,Tuple2<Integer, ArrayList<Long>>>, Iterator<Tuple2<Object,Tuple2<Integer, ArrayList<Long>>>>> implements Serializable {
         @Override
-        public Iterator<Tuple2<Object, Integer>> apply(EdgeTriplet<Integer, Integer> triplet) {
-            return null;
+        public Iterator<Tuple2<Object, Tuple2<Integer, ArrayList<Long>>>> apply(EdgeTriplet<Tuple2<Integer, ArrayList<Long>>, Tuple2<Integer, ArrayList<Long>>> triplet) {
+            Tuple2<Object,Tuple2<Integer, ArrayList<Long>>> sourceVertex = triplet.toTuple()._1();
+            Tuple2<Object,Tuple2<Integer, ArrayList<Long>>> dstVertex = triplet.toTuple()._2();
+            Integer edgeWeight = triplet.toTuple()._3()._1;
+            if (!sourceVertex._2._1.equals(Integer.MAX_VALUE) && dstVertex._2._1 > sourceVertex._2._1 + edgeWeight) {
+                sourceVertex._2._2.add(triplet.dstId());
+                return JavaConverters.asScalaIteratorConverter(Arrays.asList(new Tuple2<Object, Tuple2<Integer, ArrayList<Long>>>(triplet.dstId(), new Tuple2<Integer, ArrayList<Long>>(sourceVertex._2._1 + edgeWeight, sourceVertex._2._2))).iterator()).asScala();
+            } else {
+                return JavaConverters.asScalaIteratorConverter(new ArrayList<Tuple2<Object, Tuple2<Integer, ArrayList<Long>>>>().iterator()).asScala();
+            }
         }
     }
 
-    private static class merge extends AbstractFunction2<Integer,Integer,Integer> implements Serializable {
+    private static class merge extends AbstractFunction2<Tuple2<Integer, ArrayList<Long>>,Tuple2<Integer, ArrayList<Long>>,Tuple2<Integer, ArrayList<Long>>> implements Serializable {
         @Override
-        public Integer apply(Integer o, Integer o2) {
+        public Tuple2<Integer, ArrayList<Long>> apply(Tuple2<Integer, ArrayList<Long>> o, Tuple2<Integer, ArrayList<Long>> o2) {
             return null;
         }
     }
@@ -54,45 +62,56 @@ public class Exercise_3 {
                 .put(6l, "F")
                 .build();
 
-        List<Tuple2<Object,Integer>> vertices = Lists.newArrayList(
-                new Tuple2<Object,Integer>(1l,0),
-                new Tuple2<Object,Integer>(2l,Integer.MAX_VALUE),
-                new Tuple2<Object,Integer>(3l,Integer.MAX_VALUE),
-                new Tuple2<Object,Integer>(4l,Integer.MAX_VALUE),
-                new Tuple2<Object,Integer>(5l,Integer.MAX_VALUE),
-                new Tuple2<Object,Integer>(6l,Integer.MAX_VALUE)
-        );
-        List<Edge<Integer>> edges = Lists.newArrayList(
-                new Edge<Integer>(1l,2l, 4), // A --> B (4)
-                new Edge<Integer>(1l,3l, 2), // A --> C (2)
-                new Edge<Integer>(2l,3l, 5), // B --> C (5)
-                new Edge<Integer>(2l,4l, 10), // B --> D (10)
-                new Edge<Integer>(3l,5l, 3), // C --> E (3)
-                new Edge<Integer>(5l, 4l, 4), // E --> D (4)
-                new Edge<Integer>(4l, 6l, 11) // D --> F (11)
+        List<Tuple2<Object,Tuple2<Integer,ArrayList<Long>>>> vertices = Lists.newArrayList(
+                new Tuple2<>(1l, new Tuple2<>(0, new ArrayList<Long>(){{add(1l);}})),
+                new Tuple2<>(2l, new Tuple2<>(Integer.MAX_VALUE, new ArrayList<Long>(){{add(2l);}})),
+                new Tuple2<>(3l, new Tuple2<>(Integer.MAX_VALUE, new ArrayList<Long>(){{add(3l);}})),
+                new Tuple2<>(4l, new Tuple2<>(Integer.MAX_VALUE, new ArrayList<Long>(){{add(4l);}})),
+                new Tuple2<>(5l, new Tuple2<>(Integer.MAX_VALUE, new ArrayList<Long>(){{add(5l);}})),
+                new Tuple2<>(6l, new Tuple2<>(Integer.MAX_VALUE, new ArrayList<Long>(){{add(6l);}}))
         );
 
-        JavaRDD<Tuple2<Object,Integer>> verticesRDD = ctx.parallelize(vertices);
-        JavaRDD<Edge<Integer>> edgesRDD = ctx.parallelize(edges);
+        List<Edge<Tuple2<Integer,ArrayList<Long>>>> edges = Lists.newArrayList(
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(1l,2l, new Tuple2<Integer, ArrayList<Long>>(4, new ArrayList<Long>())), // A --> B (4)
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(1l,3l, new Tuple2<Integer, ArrayList<Long>>(2, new ArrayList<Long>())), // A --> C (2)
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(2l,3l, new Tuple2<Integer, ArrayList<Long>>(5, new ArrayList<Long>())), // B --> C (5)
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(2l,4l, new Tuple2<Integer, ArrayList<Long>>(10, new ArrayList<Long>())), // B --> D (10)
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(3l,5l, new Tuple2<Integer, ArrayList<Long>>(3, new ArrayList<Long>())), // C --> E (3)
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(5l, 4l, new Tuple2<Integer, ArrayList<Long>>(4, new ArrayList<Long>())), // E --> D (4)
+                new Edge<Tuple2<Integer, ArrayList<Long>>>(4l, 6l, new Tuple2<Integer, ArrayList<Long>>(11, new ArrayList<Long>())) // D --> F (11)
+        );
 
-        Graph<Integer,Integer> G = Graph.apply(verticesRDD.rdd(),edgesRDD.rdd(),1, StorageLevel.MEMORY_ONLY(), StorageLevel.MEMORY_ONLY(),
-                scala.reflect.ClassTag$.MODULE$.apply(Integer.class),scala.reflect.ClassTag$.MODULE$.apply(Integer.class));
+        JavaRDD<Tuple2<Object,Tuple2<Integer,ArrayList<Long>>>> verticesRDD = ctx.parallelize(vertices);
+        JavaRDD<Edge<Tuple2<Integer, ArrayList<Long>>>> edgesRDD = ctx.parallelize(edges);
 
-        GraphOps ops = new GraphOps(G, scala.reflect.ClassTag$.MODULE$.apply(Integer.class),scala.reflect.ClassTag$.MODULE$.apply(Integer.class));
+        Graph<Tuple2<Integer, ArrayList<Long>>, Tuple2<Integer, ArrayList<Long>>> G = Graph.apply(verticesRDD.rdd(),edgesRDD.rdd(),new Tuple2<Integer,ArrayList<Long>>(1, new ArrayList<Long>()), StorageLevel.MEMORY_ONLY(), StorageLevel.MEMORY_ONLY(),
+                ClassTag$.MODULE$.apply(Tuple2.class), ClassTag$.MODULE$.apply(Tuple2.class));
 
-        ops.pregel(Integer.MAX_VALUE,
+        GraphOps ops = new GraphOps(G, scala.reflect.ClassTag$.MODULE$.apply(Tuple2.class),scala.reflect.ClassTag$.MODULE$.apply(Tuple2.class));
+
+        ops.pregel(new Tuple2<Integer, ArrayList<Long>>(Integer.MAX_VALUE,null),
                 Integer.MAX_VALUE,
                 EdgeDirection.Out(),
                 new Exercise_3.VProg(),
                 new Exercise_3.sendMsg(),
                 new Exercise_3.merge(),
-                ClassTag$.MODULE$.apply(Integer.class))
+                ClassTag$.MODULE$.apply(Tuple2.class))
                 .vertices()
                 .toJavaRDD()
                 .foreach(v -> {
-                    Tuple2<Object,Integer> vertex = (Tuple2<Object,Integer>)v;
-                    System.out.println("Minimum cost to get from "+labels.get(1l)+" to "+labels.get(vertex._1())+" is " + vertex._2() + " with cost " + vertex._2());
+                    Tuple2<Object,Tuple2<Integer, ArrayList<Long>>> vertex = (Tuple2<Object,Tuple2<Integer, ArrayList<Long>>>)v;
+                    System.out.println("Shortest path to get from "+labels.get(1l)+" to "+labels.get(vertex._1)+" is " + getVerticesLabels(vertex._2._2, labels) + " with cost " + vertex._2._1);
                 });
     }
-	
+
+    private static String getVerticesLabels(ArrayList<Long> indexes, Map<Long, String> labels) {
+        StringBuilder sb = new StringBuilder("[");
+        String prefix = "";
+        for (Long item : indexes) {
+            sb.append(prefix);
+            prefix = ", ";
+            sb.append(labels.get(item));
+        }
+        return sb.append("]").toString();
+    }
 }
