@@ -98,6 +98,7 @@ public class Exercise_3 {
                 ClassTag$.MODULE$.apply(Tuple2.class))
                 .vertices()
                 .toJavaRDD()
+                .sortBy(f -> ((Tuple2<Object, Tuple2<Integer, ArrayList<Long>>>) f)._1, true, 0)
                 .foreach(v -> {
                     Tuple2<Object,Tuple2<Integer, ArrayList<Long>>> vertex = (Tuple2<Object,Tuple2<Integer, ArrayList<Long>>>)v;
                     System.out.println("Shortest path to get from "+labels.get(1l)+" to "+labels.get(vertex._1)+" is " + getVerticesLabels(vertex._2._2, labels) + " with cost " + vertex._2._1);
