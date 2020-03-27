@@ -10,6 +10,12 @@ import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.graphframes.GraphFrame;
 import org.graphframes.lib.PageRank;
+import org.graphframes.lib.PageRank$;
+import scala.Option;
+import scala.Serializable;
+import scala.Some;
+import scala.runtime.AbstractFunction0;
+import scala.runtime.BoxesRunTime;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -18,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Exercise_4 {
-	
+
 	public static void wikipedia(JavaSparkContext ctx, SQLContext sqlCtx) throws Exception{
 
 		String  path = "G:\\Documentos\\MasterDegree\\BDMA\\Classes\\UPC\\SDM\\Lab2\\SparkGraphXassignment\\src\\main\\resources\\";
@@ -67,22 +73,26 @@ public class Exercise_4 {
 
 		Dataset<Row> edges = sqlCtx.createDataFrame(edges_rdd, edges_schema);
 
-		GraphFrame gf = GraphFrame.apply(vertices,edges);
-
-		System.out.println(gf);
-
-		gf.edges().show();
-		gf.vertices().show();
+		GraphFrame gf = GraphFrame.apply(vertices,edges).unpersist().cache();
 
 		Dataset<Row> motifs = gf.edges().groupBy("src").count();
 		motifs.select("count").groupBy().max("count").show();
 
-		PageRank pRank = gf.pageRank().resetProbability(0.0018).maxIter(10);
-		pRank.run().vertices().select("id", "pagerank").show();
+		PageRank pRank = gf.pageRank().resetProbability(0.10).maxIter(20);
+		GraphFrame scores= pRank.run().unpersist().cache();
+		scores.vertices().select("id", "pagerank").show();
+
+		//scores.vertices().show();
+		//scores.edges().show();
+
+		scores.vertices().groupBy().sum("pagerank").show();
+		scores.vertices().groupBy().count().show();
+
+		//scores.inDegrees().show();
 
 		//List<String> list_source = gf.vertices().select("id").as(Encoders.STRING()).collectAsList();
 
-		//GraphFrame graph_parallel = gf.parallelPersonalizedPageRank().resetProbability(0.0018).maxIter(10).sourceIds(list_source.toArray()).run();
+		//GraphFrame graph_parallel = gf.parallelPersonalizedPageRank().resetProbability(0.5).maxIter(10).sourceIds(list_source.toArray()).run();
 		//graph_parallel.vertices().select("id", "pagerank").show();
 
 	}
