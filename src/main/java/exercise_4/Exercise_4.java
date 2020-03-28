@@ -17,9 +17,8 @@ import scala.Some;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.BoxesRunTime;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -78,15 +77,58 @@ public class Exercise_4 {
 		Dataset<Row> motifs = gf.edges().groupBy("src").count();
 		motifs.select("count").groupBy().max("count").show();
 
-		PageRank pRank = gf.pageRank().resetProbability(0.10).maxIter(20);
+
+		long num_vertex = gf.vertices().groupBy().count().as(Encoders.LONG()).collectAsList().get(0);
+
+		System.out.println(num_vertex);
+
+		int[] maxIter_toTest = {1,5,10,25,50,100};
+		double[] dampingFactor_toTest = {0.0001,0.001,0.1,0.15,0.2,0.3,0.5};
+
+		//int[] maxIter_toTest = {1};
+		//double[] dampingFactor_toTest = {0.0001,0.001};
+
+		long [][] times = new long[maxIter_toTest.length][dampingFactor_toTest.length];
+		double [][] sum_error = new double[maxIter_toTest.length][dampingFactor_toTest.length];
+
+		File fileOutput=new File(path + "Results.txt");
+		BufferedWriter bw_bestparameters = new BufferedWriter(new FileWriter(fileOutput));
+
+		DecimalFormat df = new DecimalFormat("#.############################");
+
+		for(int iter = 0; iter < maxIter_toTest.length ; iter ++){
+			for(int factor = 0; factor<dampingFactor_toTest.length ; factor++){
+
+				long startTime = System.currentTimeMillis();
+				PageRank pRank = gf.pageRank().resetProbability(dampingFactor_toTest[factor]).maxIter(maxIter_toTest[iter]);
+				GraphFrame scores= pRank.run().unpersist().cache();
+				long estimatedTime = System.currentTimeMillis() - startTime;
+				times[iter][factor] = estimatedTime;
+				sum_error[iter][factor] = scores.vertices().groupBy().sum("pagerank")
+						.as(Encoders.DOUBLE()).collectAsList().get(0) - num_vertex;
+				String line_wr = df.format(dampingFactor_toTest[factor]) +
+						"\t" + maxIter_toTest[iter] +
+						"\t" + maxIter_toTest[iter] +
+						"\t" + estimatedTime +
+						"\t" + df.format(sum_error[iter][factor]) + "\n";
+				bw_bestparameters.write(line_wr);
+				System.out.println("[dampF: " + df.format(dampingFactor_toTest[factor]) +
+						", maxIter: "+maxIter_toTest[iter] + "] -> Time: "+estimatedTime +
+						" SumError: " + df.format(sum_error[iter][factor]));
+			}
+		}
+
+		bw_bestparameters.close();
+
+		double best_damping = 0.001;
+		int best_maxIter = 1;
+
+		PageRank pRank = gf.pageRank().resetProbability(best_damping).maxIter(best_maxIter);
 		GraphFrame scores= pRank.run().unpersist().cache();
 		scores.vertices().select("id", "pagerank").show();
 
-		//scores.vertices().show();
+		scores.vertices().orderBy(org.apache.spark.sql.functions.col("pagerank").desc()).show();
 		//scores.edges().show();
-
-		scores.vertices().groupBy().sum("pagerank").show();
-		scores.vertices().groupBy().count().show();
 
 		//scores.inDegrees().show();
 
