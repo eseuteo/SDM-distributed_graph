@@ -26,7 +26,7 @@ public class Exercise_4 {
 
 	public static void wikipedia(JavaSparkContext ctx, SQLContext sqlCtx) throws Exception{
 
-		String  path = "G:\\Documentos\\MasterDegree\\BDMA\\Classes\\UPC\\SDM\\Lab2\\SparkGraphXassignment\\src\\main\\resources\\";
+		String  path = "/home/ricardohb/Documents/SDM/lab2/SparkGraphXassignment/src/main/resources/";
 
 		//Vertex Creation
 
@@ -84,6 +84,8 @@ public class Exercise_4 {
 
 		int[] maxIter_toTest = {1,5,10,25,50,100};
 		double[] dampingFactor_toTest = {0.0001,0.001,0.1,0.15,0.2,0.3,0.5};
+		maxIter_toTest = new int[]{};
+		dampingFactor_toTest = new double[]{};
 
 		//int[] maxIter_toTest = {1};
 		//double[] dampingFactor_toTest = {0.0001,0.001};
@@ -121,7 +123,7 @@ public class Exercise_4 {
 		bw_bestparameters.close();
 
 		double best_damping = 0.001;
-		int best_maxIter = 1;
+		int best_maxIter = 10;
 
 		PageRank pRank = gf.pageRank().resetProbability(best_damping).maxIter(best_maxIter);
 		GraphFrame scores= pRank.run().unpersist().cache();
