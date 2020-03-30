@@ -20,31 +20,13 @@ import scala.runtime.BoxesRunTime;
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class Exercise_4 {
 
-	public static double calculate_sqr_deltas(double[] matrixA, double[] matrixB){
-		double sum_sqr = 0;
-		for (int i =0; i < matrixA.length; i ++){
-			sum_sqr += Math.pow(matrixA[i] - matrixB[i],2);
-		}
-		return Math.pow(sum_sqr,0.5);
-	}
-
-	public static double[] asDoubleArray(List<Double> o_array){
-		double[] v = new double[o_array.size()];
-		int i = 0;
-		for(double num : o_array ) {
-			v[i++] = num;
-		}
-		return v;
-	}
-
 	public static void wikipedia(JavaSparkContext ctx, SQLContext sqlCtx) throws Exception{
 
-		String  path = "G:\\Documentos\\MasterDegree\\BDMA\\Classes\\UPC\\SDM\\Lab2\\SparkGraphXassignment\\src\\main\\resources\\";
+		String  path = "/home/ricardohb/Documents/SDM/lab2/SparkGraphXassignment/src/main/resources/";
 
 		//Vertex Creation
 
@@ -100,48 +82,41 @@ public class Exercise_4 {
 
 		System.out.println(num_vertex);
 
-		int numIterations = 10;
-		int skip = 5;
-		double[] reserProb_toTest = {0.0001,0.001,0.1,0.15,0.2,0.3,0.5};
+		int[] maxIter_toTest = {1,5,10,25,50,100};
+		double[] dampingFactor_toTest = {0.0001,0.001,0.1,0.15,0.2,0.3,0.5};
+		maxIter_toTest = new int[]{};
+		dampingFactor_toTest = new double[]{};
 
-		//double[] reserProb_toTest = {0.0001};
+		//int[] maxIter_toTest = {1};
+		//double[] dampingFactor_toTest = {0.0001,0.001};
 
-		long [][] times = new long[numIterations][reserProb_toTest.length];
-		double [][] delta_norm = new double[numIterations][reserProb_toTest.length];
+		long [][] times = new long[maxIter_toTest.length][dampingFactor_toTest.length];
+		double [][] sum_error = new double[maxIter_toTest.length][dampingFactor_toTest.length];
 
 		File fileOutput=new File(path + "Results.txt");
 		BufferedWriter bw_bestparameters = new BufferedWriter(new FileWriter(fileOutput));
 
 		DecimalFormat df = new DecimalFormat("#.############################");
 
-		for(int factor = 0; factor<reserProb_toTest.length ; factor++){
+		for(int iter = 0; iter < maxIter_toTest.length ; iter ++){
+			for(int factor = 0; factor<dampingFactor_toTest.length ; factor++){
 
-			double[] last_pr = new double[(int)num_vertex] ;
-			Arrays.fill(last_pr, 0);
-
-			for(int iter = 0; iter < numIterations ; iter ++){
-
-				int maxIter = (iter+1)*skip;
 				long startTime = System.currentTimeMillis();
-				PageRank pRank = gf.pageRank().resetProbability(reserProb_toTest[factor]).maxIter(maxIter);
+				PageRank pRank = gf.pageRank().resetProbability(dampingFactor_toTest[factor]).maxIter(maxIter_toTest[iter]);
 				GraphFrame scores= pRank.run().unpersist().cache();
 				long estimatedTime = System.currentTimeMillis() - startTime;
 				times[iter][factor] = estimatedTime;
-				double[] current_pr = asDoubleArray(scores.vertices().select("pagerank")
-						.as(Encoders.DOUBLE()).collectAsList());
-				delta_norm[iter][factor] = calculate_sqr_deltas(current_pr,last_pr);
-				String line_wr = df.format(reserProb_toTest[factor]) +
-						"\t" + iter +
-						"\t" + maxIter +
+				sum_error[iter][factor] = scores.vertices().groupBy().sum("pagerank")
+						.as(Encoders.DOUBLE()).collectAsList().get(0) - num_vertex;
+				String line_wr = df.format(dampingFactor_toTest[factor]) +
+						"\t" + maxIter_toTest[iter] +
+						"\t" + maxIter_toTest[iter] +
 						"\t" + estimatedTime +
-						"\t" + df.format(delta_norm[iter][factor]) + "\n";
+						"\t" + df.format(sum_error[iter][factor]) + "\n";
 				bw_bestparameters.write(line_wr);
-				System.out.println("[dampF: " + df.format(reserProb_toTest[factor]) +
-						", maxIter: "+maxIter + "] -> Time: "+estimatedTime +
-						" DeltaSQR: " + df.format(delta_norm[iter][factor]));
-
-				last_pr = current_pr.clone();
-
+				System.out.println("[dampF: " + df.format(dampingFactor_toTest[factor]) +
+						", maxIter: "+maxIter_toTest[iter] + "] -> Time: "+estimatedTime +
+						" SumError: " + df.format(sum_error[iter][factor]));
 			}
 		}
 
@@ -152,9 +127,9 @@ public class Exercise_4 {
 
 		PageRank pRank = gf.pageRank().resetProbability(best_damping).maxIter(best_maxIter);
 		GraphFrame scores= pRank.run().unpersist().cache();
+		scores.vertices().select("id", "pagerank").show();
+
 		scores.vertices().orderBy(org.apache.spark.sql.functions.col("pagerank").desc()).show();
-
-
 		//scores.edges().show();
 
 		//scores.inDegrees().show();
