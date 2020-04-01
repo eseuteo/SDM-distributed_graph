@@ -44,7 +44,7 @@ public class Exercise_4 {
 
 	public static void wikipedia(JavaSparkContext ctx, SQLContext sqlCtx) throws Exception{
 
-		String  path = "G:\\Documentos\\MasterDegree\\BDMA\\Classes\\UPC\\SDM\\Lab2\\SparkGraphXassignment\\src\\main\\resources\\";
+		String  path = "/home/ricardohb/Documents/SDM/lab2/SparkGraphXassignment/src/main/resources/";
 
 		//Vertex Creation
 
@@ -102,7 +102,7 @@ public class Exercise_4 {
 		
 		int numIterations = 15;
 		int skip = 5;
-		double[] reserProb_toTest = {0.01,0.1,0.15,0.2,0.3,0.4,0.5,0.7};
+		double[] reserProb_toTest = {0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7};
 		double epsilon = 0.1;
 
 		//double[] reserProb_toTest = {0.0001};
@@ -119,7 +119,7 @@ public class Exercise_4 {
 		double[] last_reset = new double[(int)num_vertex];
 		Arrays.fill(last_reset, 0);
 
-		for(int factor = reserProb_toTest.length - 1; factor==0 ; factor--){
+		for(int factor = reserProb_toTest.length - 1; factor>=0 ; factor--){
 
 			double[] last_pr = new double[(int)num_vertex] ;
 			Arrays.fill(last_pr, 0);
@@ -141,6 +141,7 @@ public class Exercise_4 {
 					last_reset = current_pr.clone();
 				}
 
+				System.out.println("aaa");
 				String line_wr = df.format(reserProb_toTest[factor]) +
 						"\t" + iter +
 						"\t" + maxIter +
