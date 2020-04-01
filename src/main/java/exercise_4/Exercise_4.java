@@ -99,22 +99,27 @@ public class Exercise_4 {
 		long num_vertex = gf.vertices().groupBy().count().as(Encoders.LONG()).collectAsList().get(0);
 
 		System.out.println(num_vertex);
-
-		int numIterations = 10;
+		
+		int numIterations = 15;
 		int skip = 5;
-		double[] reserProb_toTest = {0.0001,0.001,0.1,0.15,0.2,0.3,0.5};
+		double[] reserProb_toTest = {0.01,0.1,0.15,0.2,0.3,0.4,0.5,0.7};
+		double epsilon = 0.1;
 
 		//double[] reserProb_toTest = {0.0001};
 
 		long [][] times = new long[numIterations][reserProb_toTest.length];
-		double [][] delta_norm = new double[numIterations][reserProb_toTest.length];
+		double [][] delta_iter = new double[numIterations][reserProb_toTest.length];
+		double [] delta_reset = new double[reserProb_toTest.length];
 
 		File fileOutput=new File(path + "Results.txt");
 		BufferedWriter bw_bestparameters = new BufferedWriter(new FileWriter(fileOutput));
 
 		DecimalFormat df = new DecimalFormat("#.############################");
 
-		for(int factor = 0; factor<reserProb_toTest.length ; factor++){
+		double[] last_reset = new double[(int)num_vertex];
+		Arrays.fill(last_reset, 0);
+
+		for(int factor = reserProb_toTest.length - 1; factor==0 ; factor--){
 
 			double[] last_pr = new double[(int)num_vertex] ;
 			Arrays.fill(last_pr, 0);
@@ -129,26 +134,39 @@ public class Exercise_4 {
 				times[iter][factor] = estimatedTime;
 				double[] current_pr = asDoubleArray(scores.vertices().select("pagerank")
 						.as(Encoders.DOUBLE()).collectAsList());
-				delta_norm[iter][factor] = calculate_sqr_deltas(current_pr,last_pr);
+				delta_iter[iter][factor] = calculate_sqr_deltas(current_pr,last_pr);
+
+				if (delta_iter[iter][factor]<epsilon || iter ==numIterations){
+					delta_reset[factor] = calculate_sqr_deltas(current_pr,last_reset);
+					last_reset = current_pr.clone();
+				}
+
 				String line_wr = df.format(reserProb_toTest[factor]) +
 						"\t" + iter +
 						"\t" + maxIter +
 						"\t" + estimatedTime +
-						"\t" + df.format(delta_norm[iter][factor]) + "\n";
+						"\t" + df.format(delta_iter[iter][factor]) +
+						"\t" + df.format(delta_reset[factor]) + "\n";
 				bw_bestparameters.write(line_wr);
-				System.out.println("[dampF: " + df.format(reserProb_toTest[factor]) +
+				System.out.println("[resetProb: " + df.format(reserProb_toTest[factor]) +
 						", maxIter: "+maxIter + "] -> Time: "+estimatedTime +
-						" DeltaSQR: " + df.format(delta_norm[iter][factor]));
+						" Delta Iter: " + df.format(delta_iter[iter][factor]) +
+						" Delta Reset: " + df.format(delta_reset[factor])
+				);
 
 				last_pr = current_pr.clone();
+
+				if (delta_iter[iter][factor]<epsilon){
+					break;
+				}
 
 			}
 		}
 
 		bw_bestparameters.close();
 
-		double best_damping = 0.001;
-		int best_maxIter = 10;
+		double best_damping = 0.1;
+		int best_maxIter = 35;
 
 		PageRank pRank = gf.pageRank().resetProbability(best_damping).maxIter(best_maxIter);
 		GraphFrame scores= pRank.run().unpersist().cache();
